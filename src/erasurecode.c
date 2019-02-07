@@ -555,8 +555,7 @@ int liberasurecode_decode(int desc,
     char **data_segments = NULL;
     char **parity_segments = NULL;
     int *missing_idxs = NULL;
-
-    uint64_t realloc_bm = 0;
+    int *realloc_bv = NULL;
 
     ec_backend_t instance = liberasurecode_backend_instance_get_by_desc(desc);
     if (NULL == instance) {
@@ -585,6 +584,9 @@ int liberasurecode_decode(int desc,
     k = instance->args.uargs.k;
     m = instance->args.uargs.m;
 
+    realloc_bv = alloca((k + m) * sizeof (int));
+    memset(realloc_bv, 0, (k + m) * sizeof (int));
+    
     if (num_fragments < k) {
         log_error("Not enough fragments to decode, got %d, need %d!",
                   num_fragments, k);
@@ -677,13 +679,13 @@ int liberasurecode_decode(int desc,
      * Preparing the fragments for decode.  This will alloc aligned buffers
      * when unaligned buffers were passed in available_fragments.  It passes
      * back a bitmap telling us which buffers need to be freed by us
-     * (realloc_bm).
+     * (realloc_bv).
      *
      */
     ret = prepare_fragments_for_decode(k, m,
                                        data, parity, missing_idxs, 
                                        &orig_data_size, &blocksize,
-                                       fragment_len, &realloc_bm);
+                                       fragment_len, realloc_bv);
     if (ret < 0) {
         log_error("Could not prepare fragments for decode!");
         goto out;
@@ -732,18 +734,18 @@ int liberasurecode_decode(int desc,
 
 out:
     /* Free the buffers allocated in prepare_fragments_for_decode */
-    if (realloc_bm != 0) {
-        for (i = 0; i < k; i++) {
-            if (realloc_bm & (1 << i)) {
-                free(data[i]);
-            }
+    if (realloc_bv) {
+      for (i = 0; i < k; i++) {
+        if (realloc_bv[i]) {
+          free(data[i]);
         }
-
-        for (i = 0; i < m; i++) {
-            if (realloc_bm & (1 << (i + k))) {
-                free(parity[i]);
-            }
+      }
+      
+      for (i = 0; i < m; i++) {
+        if (realloc_bv[i + k]) {
+          free(parity[i]);
         }
+      }
     }
 
     free(data);
@@ -784,11 +786,11 @@ int liberasurecode_reconstruct_fragment(int desc,
     int k = -1;
     int m = -1;
     int i;
-    uint64_t realloc_bm = 0;
     char **data_segments = NULL;
     char **parity_segments = NULL;
     int set_chksum = 1;
-
+    int *realloc_bv = NULL;
+    
     ec_backend_t instance = liberasurecode_backend_instance_get_by_desc(desc);
     if (NULL == instance) {
         ret = -EBACKENDNOTAVAIL;
@@ -810,6 +812,9 @@ int liberasurecode_reconstruct_fragment(int desc,
     k = instance->args.uargs.k;
     m = instance->args.uargs.m;
 
+    realloc_bv = alloca((k + m) * sizeof (int));
+    memset(realloc_bv, 0, (k + m) * sizeof (int));
+    
     for (i = 0; i < num_fragments; i++) {
         /* Verify metadata checksum */
         if (is_invalid_fragment_header(
@@ -887,11 +892,11 @@ int liberasurecode_reconstruct_fragment(int desc,
      * Preparing the fragments for reconstruction.  This will alloc aligned
      * buffers when unaligned buffers were passed in available_fragments.
      * It passes back a bitmap telling us which buffers need to be freed by
-     * us (realloc_bm).
+     * us (realloc_bv).
      */
     ret = prepare_fragments_for_decode(k, m, data, parity, missing_idxs,
                                        &orig_data_size, &blocksize,
-                                       fragment_len, &realloc_bm);
+                                       fragment_len, realloc_bv);
     if (ret < 0) {
         log_error("Could not prepare fragments for reconstruction!");
         goto out;
@@ -935,18 +940,18 @@ destination_available:
 
 out:
     /* Free the buffers allocated in prepare_fragments_for_decode */
-    if (realloc_bm != 0) {
-        for (i = 0; i < k; i++) {
-            if (realloc_bm & (1 << i)) {
-                free(data[i]);
-            }
+    if (realloc_bv) {
+      for (i = 0; i < k; i++) {
+        if (realloc_bv[i]) {
+          free(data[i]);
         }
-
-        for (i = 0; i < m; i++) {
-            if (realloc_bm & (1 << (i + k))) {
-                free(parity[i]);
-            }
+      }
+      
+      for (i = 0; i < m; i++) {
+        if (realloc_bv[i + k]) {
+          free(parity[i]);
         }
+      }
     }
 
     free(data);
