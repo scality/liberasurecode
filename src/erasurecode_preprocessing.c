@@ -361,7 +361,7 @@ int fragments_to_string(int k, int m,
 
     /* Copy fragment data into cstring (fragments should be in index order) */
     for (i = 0; i < num_data && orig_data_size > 0; i++) {
-        char* fragment_data = get_data_ptr_from_fragment(data[i]);
+        char* fragment_data = _get_data_ptr_from_fragment(data[i]);
         int fragment_size = get_fragment_payload_size(data[i]);
         int payload_size = orig_data_size > fragment_size ? fragment_size : orig_data_size;
         memcpy(internal_payload + string_off, fragment_data, payload_size);
