@@ -52,6 +52,8 @@ extern struct ec_backend_common backend_shss;
 extern struct ec_backend_common backend_liberasurecode_rs_vand;
 extern struct ec_backend_common backend_isa_l_rs_cauchy;
 extern struct ec_backend_common backend_libphazr;
+extern struct ec_backend_common backend_quadiron_fnt_sys;
+extern struct ec_backend_common backend_quadiron_fnt_nsys;
 
 ec_backend_t ec_backends_supported[] = {
     (ec_backend_t) &backend_null,
@@ -63,6 +65,8 @@ ec_backend_t ec_backends_supported[] = {
     (ec_backend_t) &backend_liberasurecode_rs_vand,
     (ec_backend_t) &backend_isa_l_rs_cauchy,
     (ec_backend_t) &backend_libphazr,
+    (ec_backend_t) &backend_quadiron_fnt_sys,
+    (ec_backend_t) &backend_quadiron_fnt_nsys,
     NULL,
 };
 
@@ -276,7 +280,7 @@ int liberasurecode_instance_create(const ec_backend_id_t id,
 
     if (args->k < 0 || args->m < 0)
         return -EINVALIDPARAMS;
-    if ((args->k + args->m) > EC_MAX_FRAGMENTS) {
+    if ((args->k + args->m) > EC_MAX_FRAGMENTS && id != EC_BACKEND_QUADIRON_FNT_SYS) {
         log_error("Total number of fragments (k + m) must be less than %d\n",
                   EC_MAX_FRAGMENTS);
         return -EINVALIDPARAMS;
@@ -611,8 +615,9 @@ int liberasurecode_decode(int desc,
         }
     }
 
-    if (instance->common.id != EC_BACKEND_SHSS && instance->common.id != EC_BACKEND_LIBPHAZR) {
-        /* shss (ntt_backend) & libphazr backend must force to decode */
+    if (instance->common.id != EC_BACKEND_SHSS && instance->common.id != EC_BACKEND_LIBPHAZR &&
+        instance->common.id != EC_BACKEND_QUADIRON_FNT_NSYS) {
+        /* shss (ntt_backend) & libphazr & quadiron-nsys backend must force to decode */
         // TODO: Add a frag and function to handle whether the backend want to decode or not.
         /*
          * Try to re-assebmle the original data before attempting a decode

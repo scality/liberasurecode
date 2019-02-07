@@ -44,6 +44,8 @@
 #define SHSS_BACKEND "shss"
 #define RS_VAND_BACKEND "liberasurecode_rs_vand"
 #define LIBPHAZR_BACKEND "libphazr"
+#define QUADIRON_FNT_SYS_BACKEND "quadiron_fnt_sys"
+#define QUADIRON_FNT_NSYS_BACKEND "quadiron_fnt_nsys"
 
 typedef void (*TEST_FUNC)();
 
@@ -231,6 +233,22 @@ struct ec_args libphazr_args = {
 
 struct ec_args *libphazr_test_args[] = { &libphazr_args, NULL };
 
+struct ec_args quadiron_fnt_sys_args = {
+	.k = 3,
+	.m = 3,
+	.w = 16,
+};
+
+struct ec_args *quadiron_fnt_sys_test_args[] = { &quadiron_fnt_sys_args, NULL };
+
+struct ec_args quadiron_fnt_nsys_args = {
+	.k = 3,
+	.m = 3,
+	.w = 16,
+};
+
+struct ec_args *quadiron_fnt_nsys_test_args[] = { &quadiron_fnt_nsys_args, NULL };
+
 struct ec_args **all_backend_tests[] = {
                null_test_args,
                flat_xor_test_args,
@@ -240,6 +258,8 @@ struct ec_args **all_backend_tests[] = {
                shss_test_args,
                liberasurecode_rs_vand_test_args,
                libphazr_test_args,
+               quadiron_fnt_sys_test_args,
+               quadiron_fnt_nsys_test_args,
                NULL};
 
 int num_backends()
@@ -300,7 +320,11 @@ char * get_name_from_backend_id(ec_backend_id_t be) {
             return RS_VAND_BACKEND;
         case EC_BACKEND_LIBPHAZR:
             return LIBPHAZR_BACKEND;
-        default:
+       case EC_BACKEND_QUADIRON_FNT_SYS:
+	    return QUADIRON_FNT_SYS_BACKEND;
+       case EC_BACKEND_QUADIRON_FNT_NSYS:
+	    return QUADIRON_FNT_NSYS_BACKEND;
+       default:
             return "UNKNOWN";
     }
 }
@@ -340,6 +364,12 @@ struct ec_args *create_ec_args(ec_backend_id_t be, ec_checksum_type_t ct, int ba
         case EC_BACKEND_LIBPHAZR:
             backend_args_array = libphazr_test_args;
             break;
+        case EC_BACKEND_QUADIRON_FNT_SYS:
+            backend_args_array = quadiron_fnt_sys_test_args;
+            break;
+        case EC_BACKEND_QUADIRON_FNT_NSYS:
+            backend_args_array = quadiron_fnt_nsys_test_args;
+            break;
         default:
             return NULL;
     }
@@ -366,7 +396,9 @@ struct ec_args *create_ec_args(ec_backend_id_t be, ec_checksum_type_t ct, int ba
 char *create_buffer(int size, int fill)
 {
     char *buf = malloc(size);
-    memset(buf, fill, size);
+    int i;
+    for (i = 0;i < size;i++)
+      buf[i] = rand() % 256;
     return buf;
 }
 
@@ -1010,8 +1042,9 @@ static void encode_decode_test_impl(const ec_backend_id_t be_id,
     if (-EBACKENDNOTAVAIL == desc) {
         fprintf(stderr, "Backend library not available!\n");
         return;
-    } else if ((args->k + args->m) > EC_MAX_FRAGMENTS) {
-        assert(-EINVALIDPARAMS == desc);
+    } else if ((args->k + args->m) > EC_MAX_FRAGMENTS &&
+		    be_id != EC_BACKEND_QUADIRON_FNT_SYS) {
+	assert(-EINVALIDPARAMS == desc);
         return;
     } else
         assert(desc > 0);
@@ -1040,11 +1073,12 @@ static void encode_decode_test_impl(const ec_backend_id_t be_id,
         assert(metadata.orig_data_size == orig_data_size);
         assert(metadata.backend_id == be_id);
         assert(metadata.chksum_mismatch == 0);
-        data_ptr = frag + frag_header_size;
+        data_ptr = frag + frag_header_size + metadata.frag_backend_metadata_size;
         cmp_size = remaining >= metadata.size ? metadata.size : remaining;
         // shss & libphazr doesn't keep original data on data fragments
-        if (be_id != EC_BACKEND_SHSS && be_id != EC_BACKEND_LIBPHAZR) {
-            assert(memcmp(data_ptr, orig_data_ptr, cmp_size) == 0);
+	if (be_id != EC_BACKEND_SHSS && be_id != EC_BACKEND_LIBPHAZR &&
+			be_id != EC_BACKEND_QUADIRON_FNT_NSYS) {
+		assert(memcmp(data_ptr, orig_data_ptr, cmp_size) == 0);
         }
         remaining -= cmp_size;
         orig_data_ptr += metadata.size;
@@ -1908,6 +1942,9 @@ struct testcase testcases[] = {
     TEST_SUITE(EC_BACKEND_LIBERASURECODE_RS_VAND),
     // libphazr backend tests
     TEST_SUITE(EC_BACKEND_LIBPHAZR),
+    // quadiron backend tests
+    TEST_SUITE(EC_BACKEND_QUADIRON_FNT_SYS),
+    TEST_SUITE(EC_BACKEND_QUADIRON_FNT_NSYS),
     { NULL, NULL, 0, 0, false },
 };
 
