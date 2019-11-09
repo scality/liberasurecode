@@ -27,6 +27,7 @@
  */
 
 #include <assert.h>
+#include <stdint.h>
 #include <zlib.h>
 #include "list.h"
 #include "erasurecode.h"
@@ -38,6 +39,7 @@
 #include "erasurecode_stdinc.h"
 
 #include "alg_sig.h"
+#include "xxhash.h"
 #include "erasurecode_log.h"
 
 /* =~=*=~==~=*=~==~=*=~= Supported EC backends =~=*=~==~=*=~==~=*=~==~=*=~== */
@@ -1102,6 +1104,16 @@ int liberasurecode_get_fragment_metadata(char *fragment,
         }
         case CHKSUM_MD5:
             break;
+        case CHKSUM_XXHASH:
+            {
+                uint32_t stored_chksum = fragment_metadata->chksum[0];
+                uint32_t computed_chksum = 0;
+                char *fragment_data = get_data_ptr_from_fragment(fragment);
+                uint64_t fragment_size = fragment_metadata->size;
+                computed_chksum = XXH64(fragment_data, fragment_size, 42) & 0xFFFFFFFF;
+                fragment_metadata->chksum_mismatch = stored_chksum != computed_chksum ? 1 : 0;
+            }
+            break;
         case CHKSUM_NONE:
         default:
             break;
@@ -1138,6 +1150,7 @@ int is_invalid_fragment_header(fragment_header_t *header)
         /* no metadata checksum support */
         return 0;
 
+    // What about ?
     csum = crc32(0, (unsigned char *) &header->meta, sizeof(fragment_metadata_t));
     if (metadata_chksum == csum) {
         return 0;

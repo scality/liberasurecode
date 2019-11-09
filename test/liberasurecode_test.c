@@ -477,6 +477,9 @@ static void validate_fragment_checksum(struct ec_args *args,
         case CHKSUM_CRC32:
             computed = crc32(0, (unsigned char *) fragment_data, size);
             break;
+        case CHKSUM_XXHASH:
+            assert(metadata->chksum_mismatch == 0); // XXX
+            break;
         case CHKSUM_NONE:
             assert(metadata->chksum_mismatch == 0);
             break;
