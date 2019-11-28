@@ -481,7 +481,7 @@ inline int set_checksum(ec_checksum_type_t ct, char *buf, int blocksize)
         case CHKSUM_MD5:
             break;
         case CHKSUM_XXHASH:
-            header->meta.chksum[0] = XXH64(data, blocksize, 42) & 0xFFFFFFFF;
+            header->meta.chksum[0] = XXH64(data, blocksize, 0) & 0xFFFFFFFF;
             break;
         case CHKSUM_NONE:
         default:

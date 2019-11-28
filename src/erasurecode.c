@@ -1110,7 +1110,7 @@ int liberasurecode_get_fragment_metadata(char *fragment,
                 uint32_t computed_chksum = 0;
                 char *fragment_data = get_data_ptr_from_fragment(fragment);
                 uint64_t fragment_size = fragment_metadata->size;
-                computed_chksum = XXH64(fragment_data, fragment_size, 42) & 0xFFFFFFFF;
+                computed_chksum = XXH64(fragment_data, fragment_size, 0) & 0xFFFFFFFF;
                 fragment_metadata->chksum_mismatch = stored_chksum != computed_chksum ? 1 : 0;
             }
             break;
