@@ -7,6 +7,7 @@ INCLUDE = \
 		-I$(abs_top_srcdir)/include/xor_codes \
 		-I$(abs_top_srcdir)/include/rs_vand \
 		-I$(abs_top_srcdir)/include/isa_l \
+		-I$(abs_top_srcdir)/include/quadiron \
 		-I$(abs_top_srcdir)/include/shss
 
 AM_CPPFLAGS = $(CPPFLAGS) $(INCLUDE)
@@ -30,7 +31,10 @@ liberasurecode_la_SOURCES = \
 		backends/rs_vand/liberasurecode_rs_vand.c \
 		builtin/rs_vand/rs_galois.c \
 		backends/shss/shss.c \
-		backends/phazrio/libphazr.c
+		backends/phazrio/libphazr.c \
+		backends/quadiron/quadiron_fnt_common.c \
+		backends/quadiron/quadiron_fnt_nsys.c \
+		backends/quadiron/quadiron_fnt_sys.c
 
 liberasurecode_la_CPPFLAGS = -Werror @GCOV_FLAGS@
 liberasurecode_la_LIBADD = \

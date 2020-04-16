@@ -47,6 +47,9 @@ void init_fragment_header(char *buf)
 char *alloc_fragment_buffer(int size);
 int free_fragment_buffer(char *buf);
 int get_aligned_data_size(ec_backend_t instance, int data_len);
+char *_get_data_ptr_from_fragment(char *buf);
+int _get_data_ptr_array_from_fragments(char **data_array, char **fragments,
+        int num_fragments);
 char *get_data_ptr_from_fragment(char *buf);
 int get_data_ptr_array_from_fragments(char **data_array, char **fragments,
         int num_fragments);

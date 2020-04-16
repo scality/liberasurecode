@@ -208,11 +208,40 @@ int get_aligned_data_size(ec_backend_t instance, int data_len)
 
 /* ==~=*=~==~=*=~==~=*=~==~=*=~==~=*=~==~=*=~==~=*=~==~=*=~==~=*=~==~=*=~== */
 
-char *get_data_ptr_from_fragment(char *buf)
+char *_get_data_ptr_from_fragment(char *buf)
 {
-    buf += sizeof(fragment_header_t);
+    fragment_header_t *header = (fragment_header_t *) buf;
+
+    assert(NULL != header);
+    if (header->magic != LIBERASURECODE_FRAG_HEADER_MAGIC) {
+        log_error("Invalid fragment header!");
+        return NULL;
+    }
+
+    buf += sizeof(fragment_header_t) + header->meta.frag_backend_metadata_size;
 
     return buf;
+}
+
+int _get_data_ptr_array_from_fragments(char **data_array, char **fragments,
+                                       int num_fragments)
+{
+    int i = 0;
+    int num = 0;
+    
+    for (i = 0; i < num_fragments; i++) {
+        char *frag = fragments[i];
+        data_array[i] = frag ? _get_data_ptr_from_fragment(frag) : NULL;
+        num++;
+    }
+    return num;
+}
+
+char *get_data_ptr_from_fragment(char *buf)
+{
+     buf += sizeof(fragment_header_t);
+ 
+     return buf;
 }
 
 int get_data_ptr_array_from_fragments(char **data_array, char **fragments,

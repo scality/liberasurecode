@@ -111,7 +111,7 @@ out_error:
 }
 
 /* 
- * Note that the caller should always check realloc_bm during success or
+ * Note that the caller should always check realloc_bv during success or
  * failure to free buffers allocated here.  We could free up in this function,
  * but it is internal to this library and only used in a few places.  In any
  * case, the caller has to free up in the success case, so it may as well do
@@ -122,14 +122,14 @@ int prepare_fragments_for_decode(
         char **data, char **parity,
         int  *missing_idxs,
         int *orig_size, int *fragment_payload_size, int fragment_size,
-        uint64_t *realloc_bm)
+        int *realloc_bv)
 {
     int i;                          /* a counter */
-    unsigned long long missing_bm;  /* bitmap form of missing indexes list */
+    int missing_bv[k + m];          /* bitvalues form of missing indexes list */
     int orig_data_size = -1;
     int payload_size = -1;
 
-    missing_bm = convert_list_to_bitmap(missing_idxs);
+    convert_idx_list_to_bitvalues(missing_idxs, missing_bv, k + m);
 
     /*
      * Determine if each data fragment is:
@@ -150,7 +150,7 @@ int prepare_fragments_for_decode(
                 log_error("Could not allocate data buffer!");
                 return -ENOMEM;
             }
-            *realloc_bm = *realloc_bm | (1 << i);
+            realloc_bv[i] = 1;
         } else if (!is_addr_aligned((unsigned long)data[i], 16)) {
             char *tmp_buf = alloc_fragment_buffer(fragment_size - sizeof(fragment_header_t));
             if (NULL == tmp_buf) {
@@ -159,11 +159,11 @@ int prepare_fragments_for_decode(
             }
             memcpy(tmp_buf, data[i], fragment_size);
             data[i] = tmp_buf;
-            *realloc_bm = *realloc_bm | (1 << i);
+            realloc_bv[i] = 1;
         }
 
         /* Need to determine the size of the original data */
-       if (((missing_bm & (1 << i)) == 0) && orig_data_size < 0) {
+        if (!missing_bv[i] && orig_data_size < 0) {
             orig_data_size = get_orig_data_size(data[i]);
             if (orig_data_size < 0) {
                 log_error("Invalid orig_data_size in fragment header!");
@@ -189,7 +189,7 @@ int prepare_fragments_for_decode(
                 log_error("Could not allocate parity buffer!");
                 return -ENOMEM;
             }
-            *realloc_bm = *realloc_bm | (1 << (k + i));
+            realloc_bv[k + i] = 1;
         } else if (!is_addr_aligned((unsigned long)parity[i], 16)) {
             char *tmp_buf = alloc_fragment_buffer(fragment_size-sizeof(fragment_header_t));
             if (NULL == tmp_buf) {
@@ -198,11 +198,11 @@ int prepare_fragments_for_decode(
             }
             memcpy(tmp_buf, parity[i], fragment_size);
             parity[i] = tmp_buf;
-            *realloc_bm = *realloc_bm | (1 << (k + i));
+            realloc_bv[k + i] = 1;
         }
 
        /* Need to determine the size of the original data */
-       if (((missing_bm & (1 << (k + i))) == 0) && orig_data_size < 0) {
+       if (!missing_bv[k + i] && orig_data_size < 0) {
             orig_data_size = get_orig_data_size(parity[i]);
             if (orig_data_size < 0) {
                 log_error("Invalid orig_data_size in fragment header!");
@@ -361,7 +361,7 @@ int fragments_to_string(int k, int m,
 
     /* Copy fragment data into cstring (fragments should be in index order) */
     for (i = 0; i < num_data && orig_data_size > 0; i++) {
-        char* fragment_data = get_data_ptr_from_fragment(data[i]);
+        char* fragment_data = _get_data_ptr_from_fragment(data[i]);
         int fragment_size = get_fragment_payload_size(data[i]);
         int payload_size = orig_data_size > fragment_size ? fragment_size : orig_data_size;
         memcpy(internal_payload + string_off, fragment_data, payload_size);
