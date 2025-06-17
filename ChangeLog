@@ -1,3 +1,50 @@
+Release 1.6.5
+-------------
+
+ . Fixed a segmentation fault when multiple liberasurecode_rs_vand descriptors
+   have been created then one of them is destroyed.
+ . Fixed several compiler warnings regarding strict prototypes.
+ . Other minor fixes and updates.
+
+Release 1.6.4
+-------------
+
+ . Fixed a bounds check in get_fragment_partition that could lead to stray
+   writes or segmentation faults.
+ . Fixed builds on non-Bash shells.
+ . Other minor fixes and updates.
+
+Release 1.6.3
+-------------
+
+ . Fixed an underflow error when using flat_xor_hd.
+ . Added a build option to allow a suffix to be added to library names passed
+   to dlopen(). To use, define LIBERASURECODE_SO_SUFFIX via CFLAGS when
+   building. This is useful when renaming libraries for PyEClib wheels, for
+   example, so they don't conflict with system packages that may be installed.
+
+Release 1.6.2
+-------------
+
+ . Allow the writing of fragments with the legacy, non-standard CRC-32.
+   This is intended to smooth upgrades from liberasurecode 1.5.0 and
+   earlier in a system with multiple readers and writers.
+
+   See https://bugs.launchpad.net/liberasurecode/+bug/1886088 for more
+   information, including a script you can run on already-written
+   fragments to determine whether you are affected.
+
+   If you are affected:
+
+    - Before upgrading, ensure every writer will have the environment variable
+      LIBERASURECODE_WRITE_LEGACY_CRC=1 set upon restart.
+    - Upgrade liberasurecode on all systems, restarting processes as needed.
+      Upgraded writers will continue writing CRCs that not-yet-upgraded
+      readers can use.
+    - After liberasurecode is upgraded everywhere, remove the environment
+      variable. zlib CRCs will be used for new writes, and data written with
+      either CRC will still be readable.
+
 Release 1.6.1
 -------------
 
@@ -72,7 +119,7 @@ Release 1.0.9
 
  . Minor bugfixes including removing offending MAJOR/MINOR version macros
  . Enforce upper limit 32 on the number of erasure coding fragments
-   (#data + #chunks) < 32 
+   (#data + #chunks) < 32
 
  Release 1.0.8
 -------------

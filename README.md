@@ -51,13 +51,13 @@ Install dependencies -
  Debian/Ubuntu hosts:
 
 ```sh
- $ sudo apt-get install build-essential autoconf automake libtool
+ $ sudo apt-get install build-essential autoconf automake libtool zlib1g-dev
 ```
 
  Fedora/RedHat/CentOS hosts:
 
 ```sh
- $ sudo yum install -y gcc make autoconf automake libtool
+ $ sudo yum install -y gcc make autoconf automake libtool zlib-devel
 ```
 
 To build the liberasurecode repository, perform the following from the 
@@ -73,6 +73,15 @@ top-level directory:
 
 ----
 
+Getting Help
+============
+
+- Bugs: https://bugs.launchpad.net/liberasurecode/
+- Mailing List: http://lists.openstack.org/pipermail/openstack-discuss/ (use tag `[swift][liberasurecode]`)
+- IRC: #openstack-swift on OFTC
+
+----
+
 References
 ==========
 
@@ -80,7 +89,7 @@ References
 
  [2] Intel(R) Storage Acceleration Library (Open Source Version), https://01.org/intel%C2%AE-storage-acceleration-library-open-source-version
 
- [3] Greenan, Kevin M et al, "Flat XOR-based erasure codes in storage systems", http://www.kaymgee.com/Kevin_Greenan/Publications_files/greenan-msst10.pdf
+ [3] Greenan, Kevin M et al, "Flat XOR-based erasure codes in storage systems", https://web.archive.org/web/20161001210233/https://www.kaymgee.com/Kevin_Greenan/Publications_files/greenan-msst10.pdf
 
  [4] Kota Tsuyuzaki <tsuyuzaki.kota@lab.ntt.co.jp>, "NTT SHSS Erasure Coding backend"
 

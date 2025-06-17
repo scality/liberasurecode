@@ -1,0 +1,4 @@
+- hosts: all
+  roles:
+    - role: enable-fips
+      nslookup_target: 'opendev.org'

@@ -683,7 +683,7 @@ int liberasurecode_decode(int desc,
      *
      */
     ret = prepare_fragments_for_decode(k, m,
-                                       data, parity, missing_idxs, 
+                                       data, parity, missing_idxs,
                                        &orig_data_size, &blocksize,
                                        fragment_len, &realloc_bm);
     if (ret < 0) {
@@ -1317,7 +1317,7 @@ int liberasurecode_get_fragment_size(int desc, int data_len)
  * This will return the liberasurecode version for the descriptor
  */
 
-uint32_t liberasurecode_get_version()
+uint32_t liberasurecode_get_version(void)
 {
     return LIBERASURECODE_VERSION;
 }

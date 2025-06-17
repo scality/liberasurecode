@@ -6,29 +6,40 @@
     run: playbooks/unittests/run.yaml
 
 - job:
-    name: liberasurecode-unittests-centos-7
+    name: liberasurecode-unittests-arm64
     parent: liberasurecode-unittests
-    nodeset: centos-7
+    nodeset: ubuntu-focal-arm64
     description: |
-      Build and run test and valgrind-test for liberasurecode.
-      This job runs on CentOS-7.
+      Build and run test and valgrind-test for liberasurecode
+      on arm64.
 
 - job:
-    name: liberasurecode-unittests-centos-8
+    name: liberasurecode-unittests-centos-9-stream
     parent: liberasurecode-unittests
-    nodeset: centos-8
+    nodeset: centos-9-stream
     description: |
       Build and run test and valgrind-test for liberasurecode.
-      This job runs on CentOS-8.
+      This job runs on CentOS 9 Stream.
+
+- job:
+    name: liberasurecode-unittests-centos-9-stream-fips
+    parent: liberasurecode-unittests-centos-9-stream
+    pre-run: playbooks/enable-fips.yaml
+    description: |
+      Build and run test and valgrind-test for liberasurecode.
+      This job runs on a FIPS-enabled CentOS 9 Stream system.
 
 - project:
     check:
       jobs:
         - liberasurecode-unittests
-        - liberasurecode-unittests-centos-7
-        - liberasurecode-unittests-centos-8
+        - liberasurecode-unittests-centos-9-stream
+        - liberasurecode-unittests-centos-9-stream-fips
+    check-arm64:
+      jobs:
+        - liberasurecode-unittests-arm64
     gate:
       jobs:
         - liberasurecode-unittests
-        - liberasurecode-unittests-centos-7
-        - liberasurecode-unittests-centos-8
+        - liberasurecode-unittests-centos-9-stream
+        - liberasurecode-unittests-centos-9-stream-fips

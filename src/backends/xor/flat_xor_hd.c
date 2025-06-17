@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2014 Tushar Gohad
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,9 +39,9 @@
 #define FLAT_XOR_LIB_VER_STR "1.0"
 #define FLAT_XOR_LIB_NAME "flat_xor_hd"
 #if defined(__MACOS__) || defined(__MACOSX__) || defined(__OSX__) || defined(__APPLE__)
-#define FLAT_XOR_SO_NAME "libXorcode.dylib"
+#define FLAT_XOR_SO_NAME "libXorcode" LIBERASURECODE_SO_SUFFIX ".dylib"
 #else
-#define FLAT_XOR_SO_NAME "libXorcode.so.1"
+#define FLAT_XOR_SO_NAME "libXorcode" LIBERASURECODE_SO_SUFFIX ".so.1"
 #endif
 #define DEFAULT_W 32
 
@@ -93,13 +93,13 @@ static int flat_xor_hd_reconstruct(void *desc,
         (struct flat_xor_hd_descriptor *) desc;
 
     xor_code_t *xor_desc = (xor_code_t *) xdesc->xor_desc;
-    xor_reconstruct_one(xor_desc, data, parity, 
+    xor_reconstruct_one(xor_desc, data, parity,
                           missing_idxs, destination_idx, blocksize);
     return 0;
 }
 
 static int flat_xor_hd_min_fragments(void *desc,
-                                     int *missing_idxs, int *fragments_to_exclude, 
+                                     int *missing_idxs, int *fragments_to_exclude,
                                      int *fragments_needed)
 {
     struct flat_xor_hd_descriptor *xdesc =
@@ -111,7 +111,7 @@ static int flat_xor_hd_min_fragments(void *desc,
 }
 
 /**
- * Return the element-size, which is the number of bits stored 
+ * Return the element-size, which is the number of bits stored
  * on a given device, per codeword.  This is usually just 'w'.
  */
 static int

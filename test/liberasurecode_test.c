@@ -46,11 +46,15 @@
 #define RS_VAND_BACKEND "liberasurecode_rs_vand"
 #define LIBPHAZR_BACKEND "libphazr"
 
-typedef void (*TEST_FUNC)();
+typedef void (*TEST_FUNC_NO_ARGS)(void);
+typedef void (*TEST_FUNC_WITH_ARGS)(const ec_backend_id_t, struct ec_args *);
 
 struct testcase {
     const char *description;
-    TEST_FUNC function;
+    union{
+        TEST_FUNC_NO_ARGS no_args;
+        TEST_FUNC_WITH_ARGS with_args;
+    } function;
     ec_backend_id_t be_id;
     ec_checksum_type_t ct;
     bool skip;
@@ -106,10 +110,10 @@ struct ec_args jerasure_rs_vand_1010_args = {
     .ct = CHKSUM_NONE,
 };
 
-struct ec_args *jerasure_rs_vand_test_args[] = { &jerasure_rs_vand_args, 
-                                                 &jerasure_rs_vand_44_args, 
-                                                 &jerasure_rs_vand_1010_args, 
-                                                 &jerasure_rs_vand_48_args, 
+struct ec_args *jerasure_rs_vand_test_args[] = { &jerasure_rs_vand_args,
+                                                 &jerasure_rs_vand_44_args,
+                                                 &jerasure_rs_vand_1010_args,
+                                                 &jerasure_rs_vand_48_args,
                                                  NULL };
 struct ec_args jerasure_rs_cauchy_args = {
     .k = 10,
@@ -144,10 +148,10 @@ struct ec_args jerasure_rs_cauchy_1010_args = {
     .ct = CHKSUM_NONE,
 };
 
-struct ec_args *jerasure_rs_cauchy_test_args[] = { &jerasure_rs_cauchy_args, 
-                                                   &jerasure_rs_cauchy_44_args, 
-                                                   &jerasure_rs_cauchy_48_args, 
-                                                   &jerasure_rs_cauchy_1010_args, 
+struct ec_args *jerasure_rs_cauchy_test_args[] = { &jerasure_rs_cauchy_args,
+                                                   &jerasure_rs_cauchy_44_args,
+                                                   &jerasure_rs_cauchy_48_args,
+                                                   &jerasure_rs_cauchy_1010_args,
                                                    NULL };
 
 struct ec_args isa_l_args = {
@@ -171,7 +175,7 @@ struct ec_args isa_l_1010_args = {
     .hd = 11,
 };
 
-struct ec_args *isa_l_test_args[] = { &isa_l_args, 
+struct ec_args *isa_l_test_args[] = { &isa_l_args,
                                       &isa_l_44_args,
                                       &isa_l_1010_args,
                                       NULL };
@@ -243,7 +247,7 @@ struct ec_args **all_backend_tests[] = {
                libphazr_test_args,
                NULL};
 
-int num_backends()
+int num_backends(void)
 {
   int i = 0;
 
@@ -254,7 +258,7 @@ int num_backends()
   return i;
 }
 
-int max_tests_for_backends()
+int max_tests_for_backends(void)
 {
   int n_backends = num_backends();
   int i = 0;
@@ -472,13 +476,18 @@ static void validate_fragment_checksum(struct ec_args *args,
     uint32_t chksum2 = metadata->chksum[1];
     uint32_t computed = 0, computed2 = 0;
     uint32_t size = metadata->size;
+    char *flag;
     switch (args->ct) {
         case CHKSUM_MD5:
             assert(false); //currently only have support crc32
             break;
         case CHKSUM_CRC32:
-            computed = crc32(0, (unsigned char *) fragment_data, size);
-            assert(chksum2 == 0);
+            flag = getenv("LIBERASURECODE_WRITE_LEGACY_CRC");
+            if (flag && !(flag[0] == '\0' || (flag[0] == '0' && flag[1] == '\0'))) {
+                computed = liberasurecode_crc32_alt(0, fragment_data, size);
+            } else {
+                computed = crc32(0, (unsigned char *) fragment_data, size);
+            }
             break;
         case CHKSUM_XXHASH:
             assert(metadata->chksum_mismatch == 0);
@@ -513,18 +522,37 @@ static void test_create_and_destroy_backend(
     assert(0 == liberasurecode_instance_destroy(desc));
 }
 
-static void test_backend_available(ec_backend_id_t be_id) {
-    assert(1 == liberasurecode_backend_available(be_id));
+static void test_create_and_destroy_multiple_backends(
+        ec_backend_id_t be_id,
+        struct ec_args *args)
+{
+    int desc1 = liberasurecode_instance_create(be_id, args);
+    int desc2;
+    if (-EBACKENDNOTAVAIL == desc1) {
+        fprintf(stderr, "Backend library not available!\n");
+        return;
+    }
+    assert(desc1 > 0);
+    desc2 = liberasurecode_instance_create(be_id, args);
+    assert(desc2 > 0);
+    assert(desc1 != desc2);
+    assert(0 == liberasurecode_instance_destroy(desc1));
+    /* TODO: check that we can still use desc2 */
+    assert(0 == liberasurecode_instance_destroy(desc2));
 }
 
-static void test_backend_available_invalid_args()
+static void test_backend_available(void) {
+    assert(1 == liberasurecode_backend_available(EC_BACKEND_NULL));
+}
+
+static void test_backend_available_invalid_args(void)
 {
     int ret = liberasurecode_backend_available(EC_BACKENDS_MAX);
     // returns 1 if a backend is available; 0 otherwise
     assert(0 == ret);
 }
 
-static void test_create_backend_invalid_args()
+static void test_create_backend_invalid_args(void)
 {
     int desc = liberasurecode_instance_create(-1, &null_args);
     assert(-EBACKENDNOTSUPP == desc);
@@ -553,7 +581,7 @@ static void test_create_backend_invalid_args()
     assert(-EINVALIDPARAMS == desc);
 }
 
-static void test_destroy_backend_invalid_args()
+static void test_destroy_backend_invalid_args(void)
 {
     int desc = -1;
     assert(liberasurecode_instance_destroy(desc) < 0);
@@ -569,7 +597,7 @@ static void test_destroy_backend_invalid_args()
     assert(liberasurecode_instance_destroy(desc) < 0);
 }
 
-static void test_encode_invalid_args()
+static void test_encode_invalid_args(void)
 {
     int rc = 0;
     int desc = -1;
@@ -620,7 +648,7 @@ static void test_encode_invalid_args()
     free(orig_data);
 }
 
-static void test_encode_cleanup_invalid_args()
+static void test_encode_cleanup_invalid_args(void)
 {
     int rc = 0;
     int desc = -1;
@@ -652,7 +680,7 @@ static void test_encode_cleanup_invalid_args()
     free(orig_data);
 }
 
-static void test_decode_invalid_args()
+static void test_decode_invalid_args(void)
 {
     int rc = 0;
     int desc = -1;
@@ -750,7 +778,7 @@ static void test_decode_invalid_args()
     free(orig_data);
 }
 
-static void test_decode_cleanup_invalid_args()
+static void test_decode_cleanup_invalid_args(void)
 {
     int rc = 0;
     int desc = 1;
@@ -772,7 +800,7 @@ static void test_decode_cleanup_invalid_args()
     free(orig_data);
 }
 
-static void test_reconstruct_fragment_invalid_args()
+static void test_reconstruct_fragment_invalid_args(void)
 {
     int rc = -1;
     int desc = 1;
@@ -824,7 +852,7 @@ static void test_reconstruct_fragment_invalid_args()
     liberasurecode_instance_destroy(desc);
 }
 
-static void test_fragments_needed_invalid_args()
+static void test_fragments_needed_invalid_args(void)
 {
     int rc = -1;
     int desc = 1;
@@ -853,7 +881,7 @@ static void test_fragments_needed_invalid_args()
     liberasurecode_instance_destroy(desc);
 }
 
-static void test_get_fragment_metadata_invalid_args() {
+static void test_get_fragment_metadata_invalid_args(void) {
     int rc = -1;
     char *frag = malloc(1024);
     fragment_metadata_t metadata;
@@ -877,7 +905,7 @@ static void test_get_fragment_metadata_invalid_args() {
     free(frag);
 }
 
-static void test_verify_stripe_metadata_invalid_args() {
+static void test_verify_stripe_metadata_invalid_args(void) {
     int rc = -1;
     int num_frags = 6;
     int desc = -1;
@@ -905,7 +933,7 @@ static void test_verify_stripe_metadata_invalid_args() {
     free(frags);
 }
 
-static void test_get_fragment_partition()
+static void test_get_fragment_partition(void)
 {
     int i;
     int rc = 0;
@@ -960,6 +988,24 @@ static void test_get_fragment_partition()
     free(avail_frags);
     free(missing);
 
+    missing = alloc_and_set_buffer(sizeof(char*) * null_args.k, -1);
+    num_avail_frags = create_frags_array(&avail_frags, encoded_data,
+                                         encoded_parity, &null_args, skips);
+
+    /* Passing k+m frags for a k+(m-1) policy, we should notice the
+     * too-high frag index and call its header "bad".
+     */
+    rc = get_fragment_partition(null_args.k, null_args.m - 1, avail_frags, num_avail_frags,
+                                encoded_data, encoded_parity, missing);
+    assert(-EBADHEADER == rc);
+
+    for(i = 0; i < null_args.m; i++) assert(missing[i] == -1);
+    // Loop already pushed us one past
+    assert(missing[i] == -1);
+
+    free(avail_frags);
+    free(missing);
+
     skips[i] = 1;
     if (i < null_args.k) {
         free(encoded_data[i]);
@@ -987,7 +1033,7 @@ static void test_get_fragment_partition()
     free(orig_data);
 }
 
-static void test_liberasurecode_get_version(){
+static void test_liberasurecode_get_version(void){
     uint32_t version = liberasurecode_get_version();
     assert(version == LIBERASURECODE_VERSION);
 }
@@ -1079,7 +1125,7 @@ static void encode_decode_test_impl(const ec_backend_id_t be_id,
 
 /**
  * Note: this test will attempt to reconstruct a single fragment when
- * one or more other fragments are missing (specified by skip).  
+ * one or more other fragments are missing (specified by skip).
  *
  * For example, if skip is [0, 0, 0, 1, 0, 0] and we are reconstructing
  * fragment 5, then it will test the reconstruction of fragment 5 when 3
@@ -1350,6 +1396,24 @@ static void test_get_fragment_metadata(const ec_backend_id_t be_id, struct ec_ar
     free(orig_data);
 }
 
+static void test_write_legacy_fragment_metadata(const ec_backend_id_t be_id, struct ec_args *args)
+{
+    // any value except 0 will write legacy crc
+    setenv("LIBERASURECODE_WRITE_LEGACY_CRC", "1", 1);
+    test_get_fragment_metadata(be_id, args);
+    setenv("LIBERASURECODE_WRITE_LEGACY_CRC", "true", 1);
+    test_get_fragment_metadata(be_id, args);
+    // if the value is 0 or unset the value,
+    // it will write non-legacy crc but it's still safe to write the crc
+    setenv("LIBERASURECODE_WRITE_LEGACY_CRC", "0", 1);
+    test_get_fragment_metadata(be_id, args);
+    // even it's "00", it should be assumed as non-legacy
+    setenv("LIBERASURECODE_WRITE_LEGACY_CRC", "00", 1);
+    test_get_fragment_metadata(be_id, args);
+    unsetenv("LIBERASURECODE_WRITE_LEGACY_CRC");
+    test_get_fragment_metadata(be_id, args);
+}
+
 static void test_decode_with_missing_data(const ec_backend_id_t be_id,
                                           struct ec_args *args)
 {
@@ -1429,7 +1493,7 @@ static void test_decode_with_missing_multi_data_parity(
     }
 }
 
-static void test_isa_l_rs_vand_decode_reconstruct_specific_error_case()
+static void test_isa_l_rs_vand_decode_reconstruct_specific_error_case(void)
 {
     struct ec_args specific_1010_args = {
         .k = 10,
@@ -1523,7 +1587,7 @@ static void test_isa_l_rs_vand_decode_reconstruct_specific_error_case()
     free(skips);
 }
 
-static void test_jerasure_rs_cauchy_init_failure()
+static void test_jerasure_rs_cauchy_init_failure(void)
 {
     struct ec_args bad_args = {
         .k = 10,
@@ -1542,7 +1606,7 @@ static void test_jerasure_rs_cauchy_init_failure()
     assert(-EBACKENDINITERR == desc);
 }
 
-static void test_flat_xor_hd3_init_failure()
+static void test_flat_xor_hd3_init_failure(void)
 {
     struct ec_args bad_args[] = {
         {.k = 1, .m = 5, .hd=3},
@@ -1573,7 +1637,7 @@ static void test_simple_encode_decode(const ec_backend_id_t be_id,
     free(skip);
 }
 
-static void test_jerasure_rs_vand_simple_encode_decode_over32()
+static void test_jerasure_rs_vand_simple_encode_decode_over32(void)
 {
     struct ec_args over32_args = {
         .k = 30,
@@ -1768,7 +1832,7 @@ static void test_verify_stripe_metadata_frag_idx_invalid(
     verify_fragment_metadata_mismatch_impl(be_id, args, FRAGIDX_OUT_OF_RANGE);
 }
 
-static void test_metadata_crcs_le()
+static void test_metadata_crcs_le(void)
 {
     // We've observed headers like this in the wild, using our busted crc32
     char orig_header[] =
@@ -1807,7 +1871,7 @@ static void test_metadata_crcs_le()
     assert(is_invalid_fragment_header((fragment_header_t *) header) == 1);
 }
 
-static void test_metadata_crcs_be()
+static void test_metadata_crcs_be(void)
 {
     // Like above, but big-endian
     char orig_header[] =
@@ -1853,66 +1917,68 @@ static void test_metadata_crcs_be()
 #define TEST(test, backend, checksum) {#test, test, backend, checksum, .skip = false}
 /* Block of common tests for the "real" backends */
 #define TEST_SUITE(backend) \
-    TEST(test_create_and_destroy_backend,               backend, CHKSUM_NONE), \
-    TEST(test_simple_encode_decode,                     backend, CHKSUM_NONE), \
-    TEST(test_decode_with_missing_data,                 backend, CHKSUM_NONE), \
-    TEST(test_decode_with_missing_parity,               backend, CHKSUM_NONE), \
-    TEST(test_decode_with_missing_multi_data,           backend, CHKSUM_NONE), \
-    TEST(test_decode_with_missing_multi_parity,         backend, CHKSUM_NONE), \
-    TEST(test_decode_with_missing_multi_data_parity,    backend, CHKSUM_NONE), \
-    TEST(test_simple_reconstruct,                       backend, CHKSUM_NONE), \
-    TEST(test_fragments_needed,                         backend, CHKSUM_NONE), \
-    TEST(test_get_fragment_metadata,                    backend, CHKSUM_NONE), \
-    TEST(test_get_fragment_metadata,                    backend, CHKSUM_CRC32), \
-    TEST(test_verify_stripe_metadata,                   backend, CHKSUM_CRC32), \
-    TEST(test_verify_stripe_metadata_libec_mismatch,    backend, CHKSUM_CRC32), \
-    TEST(test_verify_stripe_metadata_magic_mismatch,    backend, CHKSUM_CRC32), \
-    TEST(test_verify_stripe_metadata_be_id_mismatch,    backend, CHKSUM_CRC32), \
-    TEST(test_verify_stripe_metadata_be_ver_mismatch,   backend, CHKSUM_CRC32), \
-    TEST(test_verify_stripe_metadata_frag_idx_invalid,  backend, CHKSUM_CRC32), \
-    TEST(test_get_fragment_metadata,                    backend, CHKSUM_XXHASH), \
-    TEST(test_verify_stripe_metadata,                   backend, CHKSUM_XXHASH), \
-    TEST(test_verify_stripe_metadata_libec_mismatch,    backend, CHKSUM_XXHASH), \
-    TEST(test_verify_stripe_metadata_magic_mismatch,    backend, CHKSUM_XXHASH), \
-    TEST(test_verify_stripe_metadata_be_id_mismatch,    backend, CHKSUM_XXHASH), \
-    TEST(test_verify_stripe_metadata_be_ver_mismatch,   backend, CHKSUM_XXHASH), \
-    TEST(test_verify_stripe_metadata_frag_idx_invalid,  backend, CHKSUM_XXHASH)
+    TEST({.with_args = test_create_and_destroy_backend},               backend, CHKSUM_NONE), \
+    TEST({.with_args = test_create_and_destroy_multiple_backends},     backend, CHKSUM_NONE), \
+    TEST({.with_args = test_simple_encode_decode},                     backend, CHKSUM_NONE), \
+    TEST({.with_args = test_decode_with_missing_data},                 backend, CHKSUM_NONE), \
+    TEST({.with_args = test_decode_with_missing_parity},               backend, CHKSUM_NONE), \
+    TEST({.with_args = test_decode_with_missing_multi_data},           backend, CHKSUM_NONE), \
+    TEST({.with_args = test_decode_with_missing_multi_parity},         backend, CHKSUM_NONE), \
+    TEST({.with_args = test_decode_with_missing_multi_data_parity},    backend, CHKSUM_NONE), \
+    TEST({.with_args = test_simple_reconstruct},                       backend, CHKSUM_NONE), \
+    TEST({.with_args = test_fragments_needed},                         backend, CHKSUM_NONE), \
+    TEST({.with_args = test_get_fragment_metadata},                    backend, CHKSUM_NONE), \
+    TEST({.with_args = test_get_fragment_metadata},                    backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_write_legacy_fragment_metadata},           backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_verify_stripe_metadata},                   backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_verify_stripe_metadata_libec_mismatch},    backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_verify_stripe_metadata_magic_mismatch},    backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_verify_stripe_metadata_be_id_mismatch},    backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_verify_stripe_metadata_be_ver_mismatch},   backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_verify_stripe_metadata_frag_idx_invalid},  backend, CHKSUM_CRC32), \
+    TEST({.with_args = test_get_fragment_metadata},                    backend, CHKSUM_XXHASH), \
+    TEST({.with_args = test_verify_stripe_metadata},                   backend, CHKSUM_XXHASH), \
+    TEST({.with_args = test_verify_stripe_metadata_libec_mismatch},    backend, CHKSUM_XXHASH), \
+    TEST({.with_args = test_verify_stripe_metadata_magic_mismatch},    backend, CHKSUM_XXHASH), \
+    TEST({.with_args = test_verify_stripe_metadata_be_id_mismatch},    backend, CHKSUM_XXHASH), \
+    TEST({.with_args = test_verify_stripe_metadata_be_ver_mismatch},   backend, CHKSUM_XXHASH), \
+    TEST({.with_args = test_verify_stripe_metadata_frag_idx_invalid},  backend, CHKSUM_XXHASH)
 
 struct testcase testcases[] = {
-    TEST(test_backend_available_invalid_args, EC_BACKENDS_MAX, 0),
-    TEST(test_backend_available, EC_BACKEND_NULL, 0),
-    TEST(test_create_backend_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_destroy_backend_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_encode_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_encode_cleanup_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_decode_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_decode_cleanup_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_reconstruct_fragment_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_get_fragment_metadata_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_verify_stripe_metadata_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_fragments_needed_invalid_args, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_get_fragment_partition, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_liberasurecode_get_version, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
-    TEST(test_metadata_crcs_le, EC_BACKENDS_MAX, 0),
-    TEST(test_metadata_crcs_be, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_backend_available_invalid_args}, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_backend_available}, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_create_backend_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_destroy_backend_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_encode_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_encode_cleanup_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_decode_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_decode_cleanup_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_reconstruct_fragment_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_get_fragment_metadata_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_verify_stripe_metadata_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_fragments_needed_invalid_args}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_get_fragment_partition}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_liberasurecode_get_version}, EC_BACKENDS_MAX, CHKSUM_TYPES_MAX),
+    TEST({.no_args = test_metadata_crcs_le}, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_metadata_crcs_be}, EC_BACKENDS_MAX, 0),
     // NULL backend test
-    TEST(test_create_and_destroy_backend, EC_BACKEND_NULL, CHKSUM_NONE),
-    TEST(test_simple_encode_decode, EC_BACKEND_NULL, CHKSUM_NONE),
-    TEST(test_get_fragment_metadata, EC_BACKEND_NULL, CHKSUM_NONE),
-    TEST(test_decode_with_missing_parity, EC_BACKEND_NULL, CHKSUM_NONE),
-    TEST(test_decode_with_missing_multi_parity, EC_BACKEND_NULL, CHKSUM_NONE),
+    TEST({.with_args = test_create_and_destroy_backend}, EC_BACKEND_NULL, CHKSUM_NONE),
+    TEST({.with_args = test_simple_encode_decode}, EC_BACKEND_NULL, CHKSUM_NONE),
+    TEST({.with_args = test_get_fragment_metadata}, EC_BACKEND_NULL, CHKSUM_NONE),
+    TEST({.with_args = test_decode_with_missing_parity}, EC_BACKEND_NULL, CHKSUM_NONE),
+    TEST({.with_args = test_decode_with_missing_multi_parity}, EC_BACKEND_NULL, CHKSUM_NONE),
     // Flat XOR backend tests
     TEST_SUITE(EC_BACKEND_FLAT_XOR_HD),
-    TEST(test_flat_xor_hd3_init_failure, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_flat_xor_hd3_init_failure}, EC_BACKENDS_MAX, 0),
     // Jerasure RS Vand backend tests
     TEST_SUITE(EC_BACKEND_JERASURE_RS_VAND),
-    TEST(test_jerasure_rs_vand_simple_encode_decode_over32, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_jerasure_rs_vand_simple_encode_decode_over32}, EC_BACKENDS_MAX, 0),
     // Jerasure RS Cauchy backend tests
     TEST_SUITE(EC_BACKEND_JERASURE_RS_CAUCHY),
-    TEST(test_jerasure_rs_cauchy_init_failure, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_jerasure_rs_cauchy_init_failure}, EC_BACKENDS_MAX, 0),
     // ISA-L rs_vand tests
     TEST_SUITE(EC_BACKEND_ISA_L_RS_VAND),
-    TEST(test_isa_l_rs_vand_decode_reconstruct_specific_error_case, EC_BACKENDS_MAX, 0),
+    TEST({.no_args = test_isa_l_rs_vand_decode_reconstruct_specific_error_case}, EC_BACKENDS_MAX, 0),
     // ISA-L rs cauchy tests
     TEST_SUITE(EC_BACKEND_ISA_L_RS_CAUCHY),
     // shss tests
@@ -1921,7 +1987,7 @@ struct testcase testcases[] = {
     TEST_SUITE(EC_BACKEND_LIBERASURECODE_RS_VAND),
     // libphazr backend tests
     TEST_SUITE(EC_BACKEND_LIBPHAZR),
-    { NULL, NULL, 0, 0, false },
+    { NULL, {.no_args = NULL}, 0, 0, false },
 };
 
 int main(int argc, char **argv)
@@ -1948,7 +2014,7 @@ int main(int argc, char **argv)
                 printf("%d - %s: %s (idx=%d) ... ", num_cases,
                        testcases[ii].description,
                        (testname) ? testname : "", i);
-                testcases[ii].function();
+                testcases[ii].function.no_args();
                 printf("ok\n");
                 num_cases++;
                 continue;
@@ -1958,7 +2024,7 @@ int main(int argc, char **argv)
                 printf("%d - %s: %s (idx=%d) ... ", num_cases,
                        testcases[ii].description,
                        (testname) ? testname : "", i);
-                testcases[ii].function(testcases[ii].be_id, args);
+                testcases[ii].function.with_args(testcases[ii].be_id, args);
                 printf("ok\n");
                 free(args);
                 num_cases++;
