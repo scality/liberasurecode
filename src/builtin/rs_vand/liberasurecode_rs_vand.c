@@ -370,7 +370,7 @@ void region_multiply(char *from_buf, char *to_buf, int mult, int xor, int blocks
   
     if (trailing_bytes == 1) {
       i = blocksize - 1;
-      to_buf[i] = to_buf[i] ^ (char)rs_galois_mult(from_buf[i], mult);
+      to_buf[i] = to_buf[i] ^ (char)rs_galois_mult((unsigned char)from_buf[i], mult);
     }
   } else {
     for (i = 0; i < adj_blocksize; i++) {
@@ -379,7 +379,7 @@ void region_multiply(char *from_buf, char *to_buf, int mult, int xor, int blocks
   
     if (trailing_bytes == 1) {
       i = blocksize - 1;
-      to_buf[i] = (char)rs_galois_mult(from_buf[i], mult);
+      to_buf[i] = (char)rs_galois_mult((unsigned char)from_buf[i], mult);
     }
   }
 }

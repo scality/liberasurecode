@@ -44,11 +44,15 @@
 int *log_table = NULL;
 int *ilog_table = NULL;
 int *ilog_table_begin = NULL;
+static int init_counter = 0;
 
-void rs_galois_init_tables()
-{
-  log_table = (int*)malloc(sizeof(int)*FIELD_SIZE);
-  ilog_table_begin = (int*)malloc(sizeof(int)*FIELD_SIZE*3);
+void rs_galois_init_tables() {
+  if (init_counter++ > 0) {
+    /* already initialized */
+    return;
+  }
+  log_table = (int *)malloc(sizeof(int) * FIELD_SIZE);
+  ilog_table_begin = (int *)malloc(sizeof(int) * FIELD_SIZE * 3);
   int i = 0;
   int x = 1;
 
@@ -56,19 +60,29 @@ void rs_galois_init_tables()
     log_table[x] = i;
     ilog_table_begin[i] = x;
     ilog_table_begin[i + GROUP_SIZE] = x;
-    ilog_table_begin[i + (GROUP_SIZE*2)] = x;
+    ilog_table_begin[i + (GROUP_SIZE * 2)] = x;
     x = x << 1;
     if (x & FIELD_SIZE) {
-      x ^= PRIM_POLY; 
+      x ^= PRIM_POLY;
     }
   }
   ilog_table = &ilog_table_begin[GROUP_SIZE];
 }
 
-void rs_galois_deinit_tables()
-{
-  free(log_table);
-  free(ilog_table_begin);
+void rs_galois_deinit_tables() {
+  init_counter--;
+  if (init_counter < 0) {
+    /* deinit when not initialized?? */
+    init_counter = 0;
+  } else if (init_counter > 0) {
+    /* still at least one desc using it */
+    return;
+  } else {
+    free(log_table);
+    log_table = NULL;
+    free(ilog_table_begin);
+    ilog_table_begin = NULL;
+  }
 }
 
 int rs_galois_mult(int x, int y)
